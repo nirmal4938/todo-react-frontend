@@ -27,13 +27,22 @@ export const isSameDay = (d1, d2) => {
   );
 };
 
-export const formatFullDate = (dateInput) => {
-  const d = new Date(dateInput);
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+export const parseLocalWeekStart = (weekStartStr) => {
+  const dateOnlyMatch =
+    typeof weekStartStr === "string" &&
+    /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(weekStartStr);
+  if (!dateOnlyMatch) return new Date(weekStartStr);
+
+  const [, year, month, day] = dateOnlyMatch;
+  const localDate = new Date(Number(year), Number(month) - 1, Number(day));
+  if (
+    localDate.getFullYear() !== Number(year) ||
+    localDate.getMonth() !== Number(month) - 1 ||
+    localDate.getDate() !== Number(day)
+  ) {
+    return new Date(Number.NaN);
+  }
+  return localDate;
 };
 
 export const formatTimeOnly = (dateInput) => {
