@@ -10,20 +10,31 @@ export default function TaskDialogLayer({
   pendingTaskIds,
   refreshTrigger,
   actionError,
+  isViewer = false,
+  workspaceId,
+  notificationPreferences,
+  notificationPhoneNumber,
+  reminderLeadTimeMinutes = 15,
+  guestMode = false,
+  searchTasks,
 }) {
   return (
     <>
       <TaskFormModal
         key={`${dialogs.isModalOpen ? "open" : "closed"}-${dialogs.editingTask?._id || "new"}`}
-        isOpen={dialogs.isModalOpen}
+        isOpen={dialogs.isModalOpen && !isViewer}
         initialTask={dialogs.editingTask}
         defaultDate={selectedDate}
         openerElement={dialogs.taskModalOpenerElement}
         onClose={dialogs.closeTaskModal}
         onSave={onSaveTask}
+        notificationPreferences={notificationPreferences}
+        notificationPhoneNumber={notificationPhoneNumber}
+        guestMode={guestMode}
       />
 
       <SearchOverlay
+        key={workspaceId}
         isOpen={dialogs.isSearchOpen}
         onClose={dialogs.closeSearch}
         openerElement={dialogs.searchOpenerElement}
@@ -36,6 +47,11 @@ export default function TaskDialogLayer({
         onDelete={onDeleteTask}
         refreshTrigger={refreshTrigger}
         actionError={actionError}
+        isViewer={isViewer}
+        workspaceId={workspaceId}
+        reminderLeadTimeMinutes={reminderLeadTimeMinutes}
+        guestMode={guestMode}
+        searchTasks={searchTasks}
       />
     </>
   );

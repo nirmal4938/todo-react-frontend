@@ -26,6 +26,7 @@ export default function WeekOverview({
   onFilterStatus,
   onOpenSearch,
   onAddTask,
+  isViewer = false,
 }) {
   return (
     <aside className="lg:sticky lg:top-10 lg:col-span-5 lg:self-start">
@@ -216,14 +217,16 @@ export default function WeekOverview({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={onAddTask}
-        className="mt-6 hidden w-full items-center justify-center gap-2 rounded-xl bg-[#3B66F5] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:bg-[#2F56D9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B66F5] lg:flex"
-      >
-        <Plus className="h-4 w-4" />
-        Add New Task
-      </button>
+      {!isViewer && (
+        <button
+          type="button"
+          onClick={onAddTask}
+          className="mt-6 hidden w-full items-center justify-center gap-2 rounded-xl bg-[#3B66F5] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:bg-[#2F56D9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B66F5] lg:flex"
+        >
+          <Plus className="h-4 w-4" />
+          Add New Task
+        </button>
+      )}
     </aside>
   );
 }

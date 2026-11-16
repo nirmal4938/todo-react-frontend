@@ -3,6 +3,35 @@ import { Calendar, Clock, X } from "lucide-react";
 import { toDateInputValue, toTimeInputValue } from "../utils/dateUtils";
 
 const PRIORITIES = ["Low", "Medium", "High"];
+const REMINDER_CHANNELS = [
+  { value: "EMAIL", label: "📧 Email" },
+  { value: "WHATSAPP", label: "💬 WhatsApp" },
+  { value: "MOBILE_ALARM", label: "⏰ Phone Alarm" },
+];
+
+const getValidationFieldErrors = (data) => {
+  const validationErrors =
+    data?.issues || data?.errors || data?.details || data?.error?.issues;
+  const issues = Array.isArray(validationErrors)
+    ? validationErrors
+    : Object.entries(validationErrors || {}).map(([field, message]) => ({
+        field,
+        message,
+      }));
+
+  return issues.reduce((fieldErrors, issue) => {
+    const field = Array.isArray(issue.path)
+      ? issue.path[0]
+      : issue.field || issue.path;
+    if (
+      ["title", "dateTime", "priority"].includes(field) &&
+      typeof issue.message === "string"
+    ) {
+      fieldErrors[field] ||= issue.message;
+    }
+    return fieldErrors;
+  }, {});
+};
 
 export default function TaskFormModal({
   isOpen,
@@ -11,6 +40,9 @@ export default function TaskFormModal({
   openerElement,
   onClose,
   onSave,
+  notificationPreferences,
+  notificationPhoneNumber,
+  guestMode = false,
 }) {
   const [title, setTitle] = useState(() => initialTask?.title || "");
   const [startTime, setStartTime] = useState(() =>
@@ -29,6 +61,20 @@ export default function TaskFormModal({
   const [description, setDescription] = useState(
     () => initialTask?.description || "",
   );
+  const [reminderChannels, setReminderChannels] = useState(() => {
+    const savedChannels = initialTask?.reminderConfig?.channels;
+    if (savedChannels) return savedChannels;
+    return REMINDER_CHANNELS.filter(
+      ({ value }) =>
+        notificationPreferences?.[
+          value === "EMAIL"
+            ? "email"
+            : value === "WHATSAPP"
+              ? "whatsapp"
+              : "mobileAlarm"
+        ],
+    ).map(({ value }) => value);
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
@@ -90,6 +136,14 @@ export default function TaskFormModal({
     if (!title.trim()) nextFieldErrors.title = "Task title is required.";
     if (!dateStr) nextFieldErrors.date = "Choose a task date.";
     if (!startTime) nextFieldErrors.time = "Choose a start time.";
+    const phone = (notificationPhoneNumber || "").replace(/[\s()-]/g, "");
+    if (
+      reminderChannels.includes("WHATSAPP") &&
+      !/^\+[1-9]\d{1,14}$/.test(phone)
+    ) {
+      nextFieldErrors.reminders =
+        "Set a valid E.164 phone number in Alert settings before enabling WhatsApp.";
+    }
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
       return;
@@ -102,12 +156,25 @@ export default function TaskFormModal({
       await onSave({
         title: title.trim(),
         description: description.trim(),
-        scheduledAt: new Date(`${dateStr}T${startTime}:00`).toISOString(),
+        dateTime: new Date(`${dateStr}T${startTime}:00`).toISOString(),
         priority,
+        reminderConfig: {
+          enabled: reminderChannels.length > 0,
+          channels: reminderChannels,
+        },
       });
       onClose();
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to save task");
+      const responseData = err?.response?.data;
+      const validationErrors = getValidationFieldErrors(responseData);
+      if (Object.keys(validationErrors).length > 0) {
+        setFieldErrors(validationErrors);
+        setError("");
+      } else {
+        setError(
+          responseData?.message || "Failed to save task. Please try again.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -207,12 +274,22 @@ export default function TaskFormModal({
               <input
                 type="time"
                 aria-label="Start time"
-                aria-invalid={Boolean(fieldErrors.time)}
-                aria-describedby={fieldErrors.time ? "task-time-error" : undefined}
+                aria-invalid={Boolean(fieldErrors.time || fieldErrors.dateTime)}
+                aria-describedby={
+                  fieldErrors.time
+                    ? "task-time-error"
+                    : fieldErrors.dateTime
+                      ? "task-date-error"
+                      : undefined
+                }
                 value={startTime}
                 onChange={(e) => {
                   setStartTime(e.target.value);
-                  setFieldErrors((previous) => ({ ...previous, time: "" }));
+                  setFieldErrors((previous) => ({
+                    ...previous,
+                    time: "",
+                    dateTime: "",
+                  }));
                 }}
                 className="w-full text-xs text-slate-700 focus:outline-none"
               />
@@ -237,20 +314,28 @@ export default function TaskFormModal({
               <input
                 type="date"
                 id="task-date"
-                aria-invalid={Boolean(fieldErrors.date)}
-                aria-describedby={fieldErrors.date ? "task-date-error" : undefined}
+                aria-invalid={Boolean(fieldErrors.date || fieldErrors.dateTime)}
+                aria-describedby={
+                  fieldErrors.date || fieldErrors.dateTime
+                    ? "task-date-error"
+                    : undefined
+                }
                 value={dateStr}
                 onChange={(e) => {
                   setDateStr(e.target.value);
-                  setFieldErrors((previous) => ({ ...previous, date: "" }));
+                  setFieldErrors((previous) => ({
+                    ...previous,
+                    date: "",
+                    dateTime: "",
+                  }));
                 }}
                 className="w-full text-xs text-slate-700 focus:outline-none"
               />
               <Calendar className="w-4 h-4 text-slate-400 ml-2 pointer-events-none shrink-0" />
             </div>
-            {fieldErrors.date && (
+            {(fieldErrors.date || fieldErrors.dateTime) && (
               <p id="task-date-error" className="mt-1 text-[11px] text-rose-600">
-                {fieldErrors.date}
+                {fieldErrors.date || fieldErrors.dateTime}
               </p>
             )}
           </div>
@@ -260,12 +345,21 @@ export default function TaskFormModal({
             <label className="block text-[11px] font-medium text-slate-400 mb-1.5">
               Priority
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div
+              role="group"
+              aria-label="Priority"
+              aria-invalid={Boolean(fieldErrors.priority)}
+              aria-describedby={fieldErrors.priority ? "task-priority-error" : undefined}
+              className="grid grid-cols-3 gap-2"
+            >
               {PRIORITIES.map((p) => (
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setPriority(p)}
+                  onClick={() => {
+                    setPriority(p);
+                    setFieldErrors((previous) => ({ ...previous, priority: "" }));
+                  }}
                   aria-pressed={priority === p}
                   aria-label={`Set ${p} priority`}
                   className={`py-2 rounded-xl text-xs font-medium border transition cursor-pointer ${
@@ -278,7 +372,54 @@ export default function TaskFormModal({
                 </button>
               ))}
             </div>
+            {fieldErrors.priority && (
+              <p id="task-priority-error" className="mt-1 text-[11px] text-rose-600">
+                {fieldErrors.priority}
+              </p>
+            )}
           </div>
+
+          {!guestMode && <fieldset>
+            <legend className="mb-1.5 block text-[11px] font-medium text-slate-400">
+              Reminder channels
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {REMINDER_CHANNELS.map(({ value, label }) => {
+                const selected = reminderChannels.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() =>
+                      setReminderChannels((current) =>
+                        selected
+                          ? current.filter((channel) => channel !== value)
+                          : [...current, value],
+                      )
+                    }
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+                      selected
+                        ? "border-[#3B66F5] bg-[#EEF3FF] text-[#3B66F5]"
+                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {fieldErrors.reminders && (
+              <p role="alert" className="mt-1 text-[10px] text-rose-600">
+                {fieldErrors.reminders}
+              </p>
+            )}
+          </fieldset>}
+          {guestMode && (
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-[10px] leading-4 text-slate-500">
+              Reminder delivery is available after creating an account.
+            </p>
+          )}
 
           {/* Description */}
           <div>

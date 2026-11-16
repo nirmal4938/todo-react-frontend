@@ -56,7 +56,7 @@ const removeTask = (weeks, id) =>
 
 const addTask = (weeks, task) => {
   const weeksWithoutTask = removeTask(weeks, task._id);
-  const taskMonday = getMondayOfWeek(new Date(task.scheduledAt));
+  const taskMonday = getMondayOfWeek(new Date(task.scheduledAt || task.dateTime));
   const weekIndex = weeksWithoutTask.findIndex((week) =>
     isSameDay(getMondayOfWeek(parseLocalWeekStart(week.weekStart)), taskMonday),
   );
@@ -93,8 +93,9 @@ const addTask = (weeks, task) => {
   );
 };
 
-export default function useTasks() {
+export default function useTasks(activeWorkspaceId) {
   const [weeksData, setWeeksData] = useState([]);
+  const [loadedWorkspaceId, setLoadedWorkspaceId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -111,14 +112,27 @@ export default function useTasks() {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     const loadWeeks = async () => {
+      if (!activeWorkspaceId) {
+        setWeeksData([]);
+        setLoadedWorkspaceId(null);
+        setLoading(false);
+        return;
+      }
       try {
+        setLoading(true);
         setError("");
-        const data = await fetchWeeklySummary();
-        if (active) setWeeksData(data || []);
+        const data = await fetchWeeklySummary(controller.signal);
+        if (active) {
+          setWeeksData(data || []);
+          setLoadedWorkspaceId(activeWorkspaceId);
+        }
       } catch {
         if (active) {
+          setWeeksData([]);
           setError("Unable to reach the server. Please verify your API URL.");
+          setLoadedWorkspaceId(activeWorkspaceId);
         }
       } finally {
         if (active) setLoading(false);
@@ -128,8 +142,9 @@ export default function useTasks() {
     loadWeeks();
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [refreshTrigger]);
+  }, [activeWorkspaceId, refreshTrigger]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -170,6 +185,7 @@ export default function useTasks() {
       const optimisticTask = {
         ...(originalTask || {}),
         ...payload,
+        scheduledAt: payload.dateTime,
         _id: optimisticId,
         status: originalTask?.status || "In Progress",
       };
@@ -197,7 +213,7 @@ export default function useTasks() {
         setActionError("");
         showToast(originalTask ? "Task updated" : "Task created");
         refresh();
-        return new Date(payload.scheduledAt);
+        return new Date(payload.dateTime);
       } catch (requestError) {
         setWeeksData((previous) => {
           const withoutOptimistic = removeTask(previous, optimisticId);
@@ -232,6 +248,7 @@ export default function useTasks() {
             : "Task marked in progress",
         );
         refresh();
+        return true;
       } catch {
         setWeeksData((previous) =>
           updateTaskStatus(previous, task._id, previousStatus),
@@ -239,6 +256,7 @@ export default function useTasks() {
         const message = "Could not update this task. Please try again.";
         setActionError(message);
         showToast(message, "error");
+        return false;
       } finally {
         setTaskPending(task._id, false);
       }
@@ -275,8 +293,9 @@ export default function useTasks() {
   );
 
   return {
-    weeksData,
-    loading,
+    weeksData:
+      loadedWorkspaceId === activeWorkspaceId ? weeksData : [],
+    loading: loading || loadedWorkspaceId !== activeWorkspaceId,
     error,
     actionError,
     pendingTaskIds,

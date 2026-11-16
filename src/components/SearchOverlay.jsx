@@ -13,6 +13,11 @@ export default function SearchOverlay({
   refreshTrigger,
   actionError,
   pendingTaskIds,
+  isViewer = false,
+  workspaceId,
+  reminderLeadTimeMinutes = 15,
+  guestMode = false,
+  searchTasks = searchTasksApi,
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -32,7 +37,7 @@ export default function SearchOverlay({
         setLoading(true);
         setError("");
         try {
-          const data = await searchTasksApi(query, controller.signal);
+          const data = await searchTasks(query, controller.signal);
           if (active) setResults(data || []);
         } catch (requestError) {
           const wasCanceled =
@@ -53,7 +58,7 @@ export default function SearchOverlay({
       active = false;
       controller.abort();
     };
-  }, [query, isOpen, refreshTrigger, searchAttempt]);
+  }, [query, isOpen, refreshTrigger, searchAttempt, searchTasks, workspaceId]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -187,6 +192,9 @@ export default function SearchOverlay({
                   key={task._id}
                   task={task}
                   isPending={pendingTaskIds.has(task._id)}
+                  isViewer={isViewer}
+                  guestMode={guestMode}
+                  reminderLeadTimeMinutes={reminderLeadTimeMinutes}
                   onToggleStatus={onToggleStatus}
                   onEdit={onEdit}
                   onDelete={onDelete}

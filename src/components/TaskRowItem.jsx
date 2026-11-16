@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
-import { Check, SquarePen, Trash2 } from "lucide-react";
+import { AlarmClock, Bell, Check, SquarePen, Trash2 } from "lucide-react";
 import { formatTimeOnly } from "../utils/dateUtils";
+import { downloadTaskAlarmApi } from "../api/alertApi";
 
 const PRIORITY_DOT = {
   High: "bg-rose-500",
@@ -11,6 +12,9 @@ const PRIORITY_DOT = {
 export default function TaskRowItem({
   task,
   isPending = false,
+  isViewer = false,
+  guestMode = false,
+  reminderLeadTimeMinutes = 15,
   onToggleStatus,
   onEdit,
   onDelete,
@@ -18,15 +22,23 @@ export default function TaskRowItem({
   const [offsetX, setOffsetX] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
+  const [alarmDownload, setAlarmDownload] = useState("idle");
   const offsetRef = useRef(0);
   const touchStartRef = useRef(null);
   const swipeOccurredRef = useRef(false);
   const touchHintId = useId();
   const isCompleted = task.status === "Completed";
+  const reminderSentAt =
+    task.reminderSentAt || task.reminderConfig?.reminderSentAt;
+  const reminderChannels = task.reminderConfig?.channels || [];
+  const reminderEnabled =
+    task.reminderConfig?.enabled !== false && reminderChannels.length > 0;
   const hasLongText =
     task.title.length > 28 || (task.description?.length || 0) > 40;
+  const displayedOffsetX = isViewer ? 0 : offsetX;
 
   const handleTouchStart = (event) => {
+    if (isViewer) return;
     if (
       event.target.closest?.("button, input, a") ||
       event.touches.length !== 1
@@ -44,6 +56,7 @@ export default function TaskRowItem({
   };
 
   const handleTouchMove = (event) => {
+    if (isViewer) return;
     const start = touchStartRef.current;
     if (!start || event.touches.length !== 1) return;
     const touch = event.touches[0];
@@ -89,15 +102,38 @@ export default function TaskRowItem({
     if (deleted) setConfirmDelete(false);
   };
 
+  const handleSetPhoneAlarm = async () => {
+    setAlarmDownload("loading");
+    try {
+      await downloadTaskAlarmApi(task._id, task.title);
+      setAlarmDownload("done");
+      window.setTimeout(() => setAlarmDownload("idle"), 2500);
+    } catch (error) {
+      setAlarmDownload("error");
+      window.setTimeout(() => setAlarmDownload("idle"), 3500);
+      window.dispatchEvent(
+        new CustomEvent("api:alarm-download-error", {
+          detail: {
+            message:
+              error.response?.data?.message ||
+              "Could not download the phone alarm calendar event.",
+          },
+        }),
+      );
+    }
+  };
+
   return (
     <article
-      className="group relative overflow-hidden rounded-xl bg-rose-500"
+      className={`group relative overflow-hidden rounded-xl ${
+        isViewer ? "bg-slate-100" : "bg-rose-500"
+      }`}
       aria-label={`Task: ${task.title}`}
       aria-describedby={touchHintId}
     >
-      <div
-        aria-hidden={offsetX === 0}
-        inert={offsetX === 0}
+      {!isViewer && <div
+        aria-hidden={displayedOffsetX === 0}
+        inert={displayedOffsetX === 0}
         className="absolute inset-y-0 right-0 flex w-[76px] flex-col items-stretch justify-center text-[11px] font-semibold text-white"
       >
         {confirmDelete ? (
@@ -126,15 +162,15 @@ export default function TaskRowItem({
             onClick={() => setConfirmDelete(true)}
             disabled={isPending}
             aria-label={`Delete ${task.title}`}
-            tabIndex={offsetX < 0 ? 0 : -1}
-            aria-hidden={offsetX === 0}
+            tabIndex={displayedOffsetX < 0 ? 0 : -1}
+            aria-hidden={displayedOffsetX === 0}
             className="flex h-full flex-col items-center justify-center gap-0.5 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-white disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
             Delete
           </button>
         )}
-      </div>
+      </div>}
 
       <div
         onTouchStart={handleTouchStart}
@@ -142,7 +178,7 @@ export default function TaskRowItem({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         onClickCapture={handleClickCapture}
-        style={{ transform: `translateX(${offsetX}px)` }}
+        style={{ transform: `translateX(${displayedOffsetX}px)` }}
         className={`relative flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 transition-transform duration-200 [touch-action:pan-y] ${
           isCompleted ? "bg-[#EEF3FF]" : "bg-[#FFF0F0]"
         }`}
@@ -152,7 +188,7 @@ export default function TaskRowItem({
             type="button"
             aria-label={isCompleted ? "Mark in progress" : "Mark completed"}
             aria-pressed={isCompleted}
-            disabled={isPending}
+            disabled={isPending || isViewer}
             onClick={() => onToggleStatus(task)}
             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B66F5] disabled:cursor-wait disabled:opacity-50 ${
               isCompleted
@@ -196,6 +232,42 @@ export default function TaskRowItem({
               {formatTimeOnly(task.scheduledAt)}
               {task.description ? ` • ${task.description}` : ""}
             </p>
+            {reminderSentAt ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700">
+                <Check className="h-3 w-3" aria-hidden="true" />
+                Sent
+              </span>
+            ) : reminderEnabled ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                <Bell className="h-3 w-3" aria-hidden="true" />
+                {reminderChannels.map((channel) =>
+                  ({
+                    EMAIL: "Email",
+                    WHATSAPP: "WhatsApp",
+                    MOBILE_ALARM: "Phone",
+                  })[channel] || channel,
+                ).join(" · ")}
+                {" · "}
+                {reminderLeadTimeMinutes}m alert
+              </span>
+            ) : null}
+            {!guestMode && task.status === "In Progress" && (
+              <button
+                type="button"
+                onClick={() => void handleSetPhoneAlarm()}
+                disabled={alarmDownload === "loading"}
+                className="mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-semibold text-[#3B66F5] hover:bg-[#EEF3FF] disabled:opacity-60"
+              >
+                <AlarmClock className="h-3.5 w-3.5" />
+                {alarmDownload === "loading"
+                  ? "Preparing..."
+                  : alarmDownload === "done"
+                    ? "Calendar file ready"
+                    : alarmDownload === "error"
+                      ? "Try alarm again"
+                      : "Set Phone Alarm"}
+              </button>
+            )}
             {hasLongText && (
               <button
                 type="button"
@@ -207,18 +279,22 @@ export default function TaskRowItem({
               </button>
             )}
             <span id={touchHintId} className="sr-only">
-              On touch screens, swipe left to reveal the delete action.
+              {isViewer
+                ? "Read-only task."
+                : "On touch screens, swipe left to reveal the delete action."}
             </span>
-            <span
-              aria-hidden="true"
-              className="mt-0.5 block text-[9px] text-slate-400 sm:hidden"
-            >
-              Swipe left to delete
-            </span>
+            {!isViewer && (
+              <span
+                aria-hidden="true"
+                className="mt-0.5 block text-[9px] text-slate-400 sm:hidden"
+              >
+                Swipe left to delete
+              </span>
+            )}
           </div>
         </div>
 
-        {confirmDelete ? (
+        {isViewer ? null : confirmDelete ? (
           <div className="flex shrink-0 items-center gap-2 text-xs">
             <span className="text-slate-600">Delete task?</span>
             <button

@@ -10,6 +10,9 @@ export default function TaskListPanel({
   selectedPriority,
   viewAllWeek,
   pendingTaskIds,
+  isViewer = false,
+  guestMode = false,
+  reminderLeadTimeMinutes = 15,
   onRetry,
   onAddTask,
   onToggleStatus,
@@ -73,13 +76,15 @@ export default function TaskListPanel({
                 : ` with ${selectedPriority.toLowerCase()} priority`}{" "}
               scheduled for this {viewAllWeek ? "week" : "day"}.
             </p>
-            <button
-              type="button"
-              onClick={onAddTask}
-              className="mt-3 text-sm font-semibold text-[#3B66F5] hover:underline"
-            >
-              Add a task now
-            </button>
+            {!isViewer && (
+              <button
+                type="button"
+                onClick={onAddTask}
+                className="mt-3 text-sm font-semibold text-[#3B66F5] hover:underline"
+              >
+                Add a task now
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -88,6 +93,9 @@ export default function TaskListPanel({
                 key={task._id}
                 task={task}
                 isPending={pendingTaskIds.has(task._id)}
+                isViewer={isViewer}
+                guestMode={guestMode}
+                reminderLeadTimeMinutes={reminderLeadTimeMinutes}
                 onToggleStatus={onToggleStatus}
                 onEdit={onEditTask}
                 onDelete={onDeleteTask}

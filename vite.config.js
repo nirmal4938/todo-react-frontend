@@ -4,4 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    host: true,
+    allowedHosts: [
+      "cherry-plastics-neil-measurement.trycloudflare.com",
+      ".trycloudflare.com",
+    ],
+  },
 });
