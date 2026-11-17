@@ -1,9 +1,15 @@
 import axios from "axios";
 
-const API_URL = (
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api"
-).replace(/\/+$/, "");
-const API_ORIGIN = API_URL.replace(/\/api(?:\/v1)?$/, "");
+const LOCAL_API_URL = "http://localhost:5000/api";
+const configuredApiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_URL = configuredApiUrl
+  ? configuredApiUrl.startsWith("/")
+    ? `/${configuredApiUrl.replace(/^\/+|\/+$/g, "")}`
+    : configuredApiUrl.replace(/\/+$/, "")
+  : LOCAL_API_URL;
+const API_ORIGIN = API_URL.startsWith("/")
+  ? ""
+  : API_URL.replace(/\/api(?:\/v1)?$/, "");
 
 const authClient = axios.create({
   baseURL: `${API_ORIGIN}/api/auth`,
@@ -129,6 +135,26 @@ export const register = (credentials) =>
   submitCredentials("/register", credentials);
 
 export const login = (credentials) => submitCredentials("/login", credentials);
+
+export const forgotPasswordApi = async (email) => {
+  const { data } = await authClient.post("/forgot-password", { email });
+  return data;
+};
+
+export const verifyResetTokenApi = async (token) => {
+  const { data } = await authClient.get("/reset-password/verify", {
+    params: { token },
+  });
+  return data;
+};
+
+export const resetPasswordApi = async ({ token, password }) => {
+  const { data } = await authClient.post("/reset-password", {
+    token,
+    password,
+  });
+  return data;
+};
 
 export const restoreSession = refreshSession;
 

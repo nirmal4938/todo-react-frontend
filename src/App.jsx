@@ -13,6 +13,8 @@ import { useWorkspace } from "./context/useWorkspace";
 import useUpcomingAlarms from "./hooks/useUpcomingAlarms";
 import LandingPage from "./pages/LandingPage";
 import GuestSandbox from "./pages/GuestSandbox";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import { createTaskApi } from "./api/taskApi";
 import {
   GUEST_TASKS_IMPORTED_KEY,
@@ -20,6 +22,8 @@ import {
 } from "./context/guestSandboxStorage";
 
 const isAuthPath = (path) => path === "/login" || path === "/register";
+const isPasswordRecoveryPath = (path) =>
+  path === "/forgot-password" || path === "/reset-password";
 const isProtectedPath = (path) =>
   path === "/app" || path === "/dashboard" || path.startsWith("/app/");
 const getPathname = () => window.location.pathname;
@@ -62,6 +66,7 @@ function ApplicationRouter() {
       pathname !== "/" &&
       pathname !== "/demo" &&
       !isAuthPath(pathname) &&
+      !isPasswordRecoveryPath(pathname) &&
       !isProtectedPath(pathname)
     ) {
       navigate(session ? "/app" : "/", true);
@@ -87,6 +92,14 @@ function ApplicationRouter() {
 
   if (pathname === "/demo") {
     return <GuestSandbox onNavigate={navigate} />;
+  }
+
+  if (pathname === "/forgot-password") {
+    return <ForgotPasswordPage onNavigate={navigate} />;
+  }
+
+  if (pathname === "/reset-password") {
+    return <ResetPasswordPage onNavigate={navigate} />;
   }
 
   if (isAuthPath(pathname)) {

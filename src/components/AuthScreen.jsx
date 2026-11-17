@@ -81,7 +81,21 @@ export default function AuthScreen({ mode, onNavigate }) {
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Password
+            <span className="flex items-center justify-between">
+              <span>Password</span>
+              {!isRegistering && (
+                <a
+                  href="/forgot-password"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onNavigate("/forgot-password");
+                  }}
+                  className="text-xs font-semibold text-[#3B66F5] hover:underline"
+                >
+                  Forgot password?
+                </a>
+              )}
+            </span>
             <input
               type="password"
               autoComplete={isRegistering ? "new-password" : "current-password"}

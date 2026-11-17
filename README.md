@@ -272,6 +272,7 @@ Start the backend separately using its own repository's documented setup and set
 | `npm run lint`    | Run ESLint                              |
 
 The Vercel rewrite in `vercel.json` sends unmatched paths to `index.html` for SPA routing. For another static host, configure an equivalent SPA fallback and set `VITE_API_BASE_URL` in the host's build environment.
+For Vercel production, set `VITE_API_BASE_URL=/api` so API traffic uses the same-origin rewrite to the Render backend.
 
 ## Testing, Quality Assurance & End-User Proof
 

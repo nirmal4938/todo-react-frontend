@@ -3,17 +3,17 @@ import { createAuthenticatedApiClient } from "./authApi";
 const api = createAuthenticatedApiClient();
 
 export const saveNotificationSettingsApi = async (settings) => {
-  const { data } = await api.patch("/api/auth/notifications", settings);
+  const { data } = await api.patch("/auth/notifications", settings);
   return data.data;
 };
 
 export const fetchUpcomingAlarmsApi = async (signal) => {
-  const { data } = await api.get("/api/tasks/upcoming-alarms", { signal });
+  const { data } = await api.get("/tasks/upcoming-alarms", { signal });
   return data.data || [];
 };
 
 export const downloadTaskAlarmApi = async (taskId, title) => {
-  const { data } = await api.get(`/api/tasks/${taskId}/alarm.ics`, {
+  const { data } = await api.get(`/tasks/${taskId}/alarm.ics`, {
     responseType: "blob",
   });
   const url = URL.createObjectURL(data);
