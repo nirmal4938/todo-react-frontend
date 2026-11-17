@@ -59,6 +59,10 @@ const setSession = (session) => {
     throw new Error("Authentication response did not include a valid session.");
   }
 
+  if (normalizedSession.refreshToken) {
+    localStorage.setItem("todo_refresh_token", normalizedSession.refreshToken);
+  }
+
   setAccessToken(normalizedSession.accessToken);
   const userId = normalizedSession.user?.id || normalizedSession.user?._id;
   const lastWorkspaceId = userId
@@ -75,12 +79,14 @@ const clearAuth = () => {
   setActiveWorkspaceId(null);
   localStorage.removeItem("todo_workspace_id");
   localStorage.removeItem("todo_active_workspace_id");
+  localStorage.removeItem("todo_refresh_token");
 };
 
 const refreshSession = () => {
   if (!refreshPromise) {
+    const storedRefreshToken = localStorage.getItem("todo_refresh_token");
     refreshPromise = authClient
-      .post("/refresh")
+      .post("/refresh", storedRefreshToken ? { refreshToken: storedRefreshToken } : {})
       .then(({ data }) => {
         return setSession(data.data);
       })
@@ -176,7 +182,8 @@ export const restoreSession = refreshSession;
 
 export const logout = async () => {
   try {
-    await authClient.post("/logout");
+    const storedRefreshToken = localStorage.getItem("todo_refresh_token");
+    await authClient.post("/logout", { refreshToken: storedRefreshToken });
   } finally {
     clearAuth();
   }
