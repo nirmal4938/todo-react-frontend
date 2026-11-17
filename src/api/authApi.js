@@ -1,15 +1,31 @@
 import axios from "axios";
 
 const LOCAL_API_URL = "http://localhost:5000/api";
-const configuredApiUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-const API_URL = configuredApiUrl
-  ? configuredApiUrl.startsWith("/")
-    ? `/${configuredApiUrl.replace(/^\/+|\/+$/g, "")}`
-    : configuredApiUrl.replace(/\/+$/, "")
-  : LOCAL_API_URL;
+const normalizeApiUrl = (value) => {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue) return LOCAL_API_URL;
+
+  if (trimmedValue.startsWith("/")) {
+    const relativePath = `/${trimmedValue.replace(/^\/+|\/+$/g, "")}`;
+    if (relativePath === "/") return "/api";
+    const normalizedRelativePath = relativePath
+      .replace(/\/api\/v\d+$/i, "/api")
+      .replace(/\/+$/, "");
+    if (/\/api$/i.test(normalizedRelativePath)) return normalizedRelativePath;
+    return `${normalizedRelativePath}/api`;
+  }
+
+  const absoluteUrl = trimmedValue.replace(/\/+$/, "");
+  if (/\/api\/v\d+$/i.test(absoluteUrl)) {
+    return absoluteUrl.replace(/\/api\/v\d+$/i, "/api");
+  }
+  return /\/api$/i.test(absoluteUrl) ? absoluteUrl : `${absoluteUrl}/api`;
+};
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_BASE_URL);
 const API_ORIGIN = API_URL.startsWith("/")
   ? ""
-  : API_URL.replace(/\/api(?:\/v1)?$/, "");
+  : API_URL.replace(/\/api$/i, "");
 
 const authClient = axios.create({
   baseURL: `${API_ORIGIN}/api/auth`,
