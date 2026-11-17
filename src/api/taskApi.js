@@ -59,7 +59,7 @@ export const fetchWeeklySummary = async (signal) => {
 
 export const searchTasksApi = async (search, signal) => {
   const { data } = await retryReadRequest(
-    () => api.get("/tasks", { params: { search }, signal }),
+    () => api.get("/api/tasks", { params: { search }, signal }),
     signal,
   );
   return (data.data || []).map(normalizeTask);
@@ -71,16 +71,16 @@ export const createTaskApi = async (payload) => {
 };
 
 export const updateTaskApi = async (id, payload) => {
-  const { data } = await api.put(`/tasks/${id}`, payload);
+  const { data } = await api.put(`/api/tasks/${id}`, payload);
   return data.data ? normalizeTask(data.data) : data.data;
 };
 
 export const updateTaskStatusApi = async (id, status) => {
-  const { data } = await api.patch(`/tasks/${id}/status`, { status });
+  const { data } = await api.patch(`/api/tasks/${id}/status`, { status });
   return data.data;
 };
 
 export const deleteTaskApi = async (id) => {
-  const { data } = await api.delete(`/tasks/${id}`);
+  const { data } = await api.delete(`/api/tasks/${id}`);
   return data;
 };

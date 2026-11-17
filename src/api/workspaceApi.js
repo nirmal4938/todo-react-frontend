@@ -10,13 +10,13 @@ export const fetchWorkspacesApi = async () => {
 };
 
 export const createWorkspaceApi = async (name) => {
-  const response = await api.post("/workspaces", { name });
+  const response = await api.post("/api/workspaces", { name });
   return response.data?.workspace ?? response.data?.data ?? response.data;
 };
 
 export const inviteWorkspaceMemberApi = async (workspaceId, payload) => {
   const { data } = await api.post(
-    `/workspaces/${workspaceId}/members`,
+    `/api/workspaces/${workspaceId}/members`,
     payload,
   );
   return data.data;
@@ -28,7 +28,7 @@ export const updateWorkspaceMemberRoleApi = async (
   role,
 ) => {
   const { data } = await api.patch(
-    `/workspaces/${workspaceId}/members/${userId}`,
+    `/api/workspaces/${workspaceId}/members/${userId}`,
     { role },
   );
   return data.data;

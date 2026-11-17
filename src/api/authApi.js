@@ -128,8 +128,7 @@ const submitCredentials = async (endpoint, credentials) => {
 export const register = (credentials) =>
   submitCredentials("/register", credentials);
 
-export const login = (credentials) =>
-  submitCredentials("/login", credentials);
+export const login = (credentials) => submitCredentials("/login", credentials);
 
 export const restoreSession = refreshSession;
 
